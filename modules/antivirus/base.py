@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2014 QuarksLab.
+# Copyright (c) 2013-2015 QuarksLab.
 # This file is part of IRMA project.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -61,6 +61,10 @@ class Antivirus(object):
         self._scan_patterns = []
         self._scan_results = dict()
         self._is_windows = sys.platform.startswith('win')
+
+    def can_handle(self, mimetype):
+        # Accept all mimetypes
+        return True
 
     # ====================
     #  Antivirus methods
@@ -165,14 +169,25 @@ class Antivirus(object):
             raise RuntimeError(reason)
         # handle infected and error error codes
         if retcode in [self.ScanResult.INFECTED, self.ScanResult.ERROR]:
+            is_false_positive = True
             if stdout:
-                is_false_positive = True
                 for line in stdout.splitlines():
                     for pattern in self.scan_patterns:
                         matches = pattern.finditer(line)
                         for match in matches:
                             filename = match.group('file').lower()
-                            if paths.lower() in filename:
+                            # Handle absolute and relative paths in AV outputs
+                            #
+                            # Some filenames possibilities:
+                            #   /absolute-dir/.../filename
+                            #   /absolute-dir/.../name.zip/unzip1.zip/unzip2.zip
+                            #   relative-dir/.../name.zip/unzip1.zip/unzip2.zip
+                            #
+                            # NOTE: as 'filename' does not correspond exactly
+                            # to the filename parsed from the output, we need
+                            # to inverse the conditions.
+                            if paths.lower() in filename or \
+                               os.path.relpath(paths.lower()) in filename:
                                 name = match.group('name')
                                 # NOTE: get first result, ignore others if
                                 # binary is packed.
@@ -185,12 +200,13 @@ class Antivirus(object):
                         # if a match has been found, ignore other patterns
                         if not is_false_positive:
                             break
-                # handle false positive
-                if is_false_positive:
-                    if stderr or retcode in [self.ScanResult.ERROR]:
-                        retcode = self.ScanResult.ERROR
-                    else:
-                        retcode = self.ScanResult.CLEAN
+            # handle false positive
+            if is_false_positive:
+                if stderr or retcode in [self.ScanResult.ERROR]:
+                    retcode = self.ScanResult.ERROR
+                    self._scan_results[paths] = stderr if stderr else stdout
+                else:
+                    retcode = self.ScanResult.CLEAN
         return retcode
 
     # =========================================================================
@@ -213,6 +229,9 @@ class Antivirus(object):
     def database(self):
         if not self._database:
             self._database = self.get_database()
+            # NOTE: Expecting to have only files, thus filtering folders
+            if self._database:
+                self._database = filter(os.path.isfile, self._database)
         return self._database
 
     @property

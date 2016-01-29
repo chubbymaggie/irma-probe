@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2014 QuarksLab.
+# Copyright (c) 2013-2015 QuarksLab.
 # This file is part of IRMA project.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,7 @@
 
 import os
 import sys
+import re
 
 from datetime import datetime
 from ConfigParser import SafeConfigParser
@@ -25,6 +26,7 @@ from lib.plugins import ModuleDependency, FileDependency
 from lib.plugins import PluginLoadError
 from lib.plugin_result import PluginResult
 from lib.common.hash import sha1sum
+from lib.irma.common.utils import IrmaProbeType
 
 
 class NSRLPlugin(PluginBase):
@@ -41,7 +43,7 @@ class NSRLPlugin(PluginBase):
     _plugin_name_ = "NSRL"
     _plugin_author_ = "IRMA (c) Quarkslab"
     _plugin_version_ = "1.0.0"
-    _plugin_category_ = "database"
+    _plugin_category_ = IrmaProbeType.database
     _plugin_description_ = "Information plugin to query hashes on " \
                            "NRSL database"
     _plugin_dependencies_ = [
@@ -56,6 +58,7 @@ class NSRLPlugin(PluginBase):
             os.path.join(os.path.dirname(__file__), 'config.ini')
         )
     ]
+    _plugin_mimetype_regexp = 'PE32'
 
     @classmethod
     def verify(cls):
@@ -106,6 +109,10 @@ class NSRLPlugin(PluginBase):
 
         self.module = module(nsrl_file_db, nsrl_prod_db,
                              nsrl_os_db, nsrl_mfg_db)
+
+    def can_handle(self, mimetype):
+        # accept all PE executable
+        return re.search('PE32', mimetype, re.IGNORECASE) is not None
 
     # ==================
     #  probe interfaces

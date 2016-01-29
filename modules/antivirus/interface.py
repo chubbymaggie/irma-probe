@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2014 QuarksLab.
+# Copyright (c) 2013-2015 QuarksLab.
 # This file is part of IRMA project.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,6 +58,9 @@ class AntivirusPluginInterface(object):
         if os.path.exists(filename):
             result['mtime'] = os.path.getmtime(filename)
             result['ctime'] = os.path.getctime(filename)
-            with open(filename, 'rb') as fd:
-                result['sha256'] = hashlib.sha256(fd.read()).hexdigest()
+            try:
+                with open(filename, 'rb') as fd:
+                    result['sha256'] = hashlib.sha256(fd.read()).hexdigest()
+            except Exception as e:
+                result['sha256'] = None
         return result

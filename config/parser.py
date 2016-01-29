@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2014 QuarksLab.
+# Copyright (c) 2013-2015 QuarksLab.
 # This file is part of IRMA project.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,10 +39,13 @@ template_probe_config = {
         ('username', TemplatedConfiguration.string, None),
         ('password', TemplatedConfiguration.string, None)
     ],
-    'backend_probe': [
+    'broker_brain': [
         ('host', TemplatedConfiguration.string, None),
-        ('port', TemplatedConfiguration.integer, 6379),
-        ('db', TemplatedConfiguration.integer, None),
+        ('port', TemplatedConfiguration.integer, 5672),
+        ('vhost', TemplatedConfiguration.string, None),
+        ('username', TemplatedConfiguration.string, None),
+        ('password', TemplatedConfiguration.string, None),
+        ('queue', TemplatedConfiguration.string, None)
     ],
     'ftp_brain': [
         ('host', TemplatedConfiguration.string, None),
@@ -63,13 +66,13 @@ probe_config = TemplatedConfiguration(cfg_file, template_probe_config)
 
 def _conf_celery(app, broker, backend=None, queue=None):
     app.conf.update(BROKER_URL=broker,
-                    CELERY_RESULT_BACKEND=backend,
                     CELERY_ACCEPT_CONTENT=['json'],
                     CELERY_TASK_SERIALIZER='json',
                     CELERY_RESULT_SERIALIZER='json'
                     )
     if backend is not None:
         app.conf.update(CELERY_RESULT_BACKEND=backend)
+        app.conf.update(CELERY_TASK_RESULT_EXPIRES=300)  # 5 minutes
     if queue is not None:
         app.conf.update(CELERY_DEFAULT_QUEUE=queue,
                         # delivery_mode=1 enable transient mode
@@ -81,24 +84,14 @@ def _conf_celery(app, broker, backend=None, queue=None):
 
 def conf_probe_celery(app):
     broker = get_probe_broker_uri()
-    backend = get_probe_backend_uri()
-    _conf_celery(app, broker, backend=backend)
+    _conf_celery(app, broker)
 
 
-# =================
-#  Backend helpers
-# =================
-
-def _get_backend_uri(backend_config):
-    host = backend_config.host
-    port = backend_config.port
-    db = backend_config.db
-    return "redis://{host}:{port}/{db}" \
-           "".format(host=host, port=port, db=db)
-
-
-def get_probe_backend_uri():
-    return _get_backend_uri(probe_config.backend_probe)
+def conf_brain_celery(app):
+    broker = get_brain_backend_uri()
+    backend = get_brain_backend_uri()
+    queue = probe_config.broker_brain.queue
+    _conf_celery(app, broker, backend=backend, queue=queue)
 
 
 # ================
@@ -117,6 +110,15 @@ def _get_broker_uri(broker_config):
 
 def get_probe_broker_uri():
     return _get_broker_uri(probe_config.broker_probe)
+
+
+def get_brain_broker_uri():
+    return _get_broker_uri(probe_config.broker_brain)
+
+
+# Use AMQP as broker and backend
+def get_brain_backend_uri():
+    return _get_broker_uri(probe_config.broker_brain)
 
 
 # ================

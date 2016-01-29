@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2014 QuarksLab.
+# Copyright (c) 2013-2015 QuarksLab.
 # This file is part of IRMA project.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,7 +80,10 @@ class Sophos(Antivirus):
         # always installed by default. Instead, hardcode some common paths and
         # locate files using predefined patterns
         if self._is_windows:
-            search_paths = map(lambda x: "{path}/Sophos/*".format(path=x),
+            path = 'Sophos/Sophos Anti-Virus'
+            search_paths = map(lambda x:
+                               "{program_files}/{path}/*"
+                               "".format(program_files=x, path=path),
                                [os.environ.get('PROGRAMFILES', ''),
                                 os.environ.get('PROGRAMFILES(X86)', '')])
         else:
@@ -102,9 +105,11 @@ class Sophos(Antivirus):
     def get_scan_path(self):
         """return the full path of the scan tool"""
         if self._is_windows:
+            path = 'Sophos/Sophos Anti-Virus'
             scan_bin = "sav32cli.exe"
             scan_paths = map(lambda x:
-                             "{path}/Sophos".format(path=x),
+                             "{program_files}/{path}"
+                             "".format(program_files=x, path=path),
                              [os.environ.get('PROGRAMFILES', ''),
                               os.environ.get('PROGRAMFILES(X86)', '')])
         else:

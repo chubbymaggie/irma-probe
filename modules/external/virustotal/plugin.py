@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2014 QuarksLab.
+# Copyright (c) 2013-2015 QuarksLab.
 # This file is part of IRMA project.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +24,7 @@ from lib.common.utils import timestamp
 from lib.plugins import PluginBase
 from lib.plugins import ModuleDependency, FileDependency
 from lib.plugin_result import PluginResult
+from lib.irma.common.utils import IrmaProbeType
 
 
 class VirusTotalPlugin(PluginBase):
@@ -40,7 +41,7 @@ class VirusTotalPlugin(PluginBase):
     _plugin_name_ = "VirusTotal"
     _plugin_author_ = "IRMA (c) Quarkslab"
     _plugin_version_ = "1.0.0"
-    _plugin_category_ = "external"
+    _plugin_category_ = IrmaProbeType.external
     _plugin_description_ = "Plugin to query VirusTotal API"
     _plugin_dependencies_ = [
         ModuleDependency(
@@ -79,6 +80,10 @@ class VirusTotalPlugin(PluginBase):
             module = sys.modules['virus_total_apis'].PublicApi
         self.module = module(self.apikey)
 
+    def can_handle(self, mimetype):
+        # accept all mimetypes
+        return True
+
     def get_file_report(self, filename):
         with open(filename, 'rb') as filedesc:
             digest = hashlib.md5(filedesc.read()).hexdigest()
@@ -101,11 +106,13 @@ class VirusTotalPlugin(PluginBase):
             # check eventually for errors
             if 'error' in response:
                 results.status = self.VirusTotalResult.ERROR
-                results.error = "Network probably unreachable"
-            elif (response['response_code'] == 204) or \
-               (response['response_code'] == 403):
+                results.error = str(response['error'])
+            elif (response['response_code'] == 204):
                 results.status = self.VirusTotalResult.ERROR
-                results.error = response['results']['verbose_msg']
+                results.error = "Public API request rate limit exceeded"
+            elif (response['response_code'] == 403):
+                results.status = self.VirusTotalResult.ERROR
+                results.error = "Access forbidden (wrong key value or type)"
             elif (response['response_code'] == 200) and \
                  (response['results']['response_code'] != 1):
                 results.status = self.VirusTotalResult.NOT_FOUND
